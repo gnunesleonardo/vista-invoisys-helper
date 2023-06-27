@@ -4,23 +4,18 @@ const invoisysApi = {
   'consultachavedeacesso': 'nfce/getbychavedeacesso'
 }
 
-const invoisysConfig = {
-  'env': 1
-};
-
+const invoisysConfig = { 'env': 1 };
 var loadedXmlsArr = [];
 
-const showRandomFact = async () => {
-  try {
-    const response = await fetch('https://catfact.ninja/fact', {
-      method: 'GET'
-    });
-    const randomFact = await response.json();
-    $('#random-fact').text(randomFact.fact);
-  } catch (error) {
-    return null;
-  }
-};
+const changeLoadingAnimationText = (text) => $('#load-ani > .text-center').text(text);
+const clearTableBody = () => $('#table > tbody').empty();
+const appendXmlErrorMessageAlertList = (errorMessage) => $('#xmls-error-alert > ul').append(`<li>${errorMessage}</li>`);
+const showXmlErrorMessageAlertList = () => $('#xmls-error-alert').show();
+
+const clearXmlErrorMessageAlertList = () => {
+  $('#xmls-error-alert').hide();
+  $('#xmls-error-alert > ul').empty();
+}
 
 const setProgressBarPercentage = (length) => {
   const value = parseInt($('.progress-bar').attr('aria-valuenow'));
@@ -42,18 +37,10 @@ const showLoadingAnimation = () => {
   clearProgressBar();
 };
 
-const changeLoadingAnimationText = (text) => {
-  $('#load-ani > .text-center').text(text);
-};
-
 const hideLoadingAnimation = () => {
   $('#load-ani').hide();
   clearProgressBar();
 }
-
-const clearTableBody = () => {
-  $('#table > tbody').empty();
-};
 
 const clearInputFile = () => {
   loadedXmlsArr.length = 0;
@@ -71,6 +58,18 @@ const createTableRow = (accessKey, status, issueDate, authDate) => {
     </tr>
   `);
 }
+
+const showRandomFact = async () => {
+  try {
+    const response = await fetch('https://catfact.ninja/fact', {
+      method: 'GET'
+    });
+    const randomFact = await response.json();
+    $('#random-fact').text(randomFact.fact);
+  } catch (error) {
+    return null;
+  }
+};
 
 const getAllAccessKeyData = (accessKeyGetArr, apiToken) => {
   const length = accessKeyGetArr.length;
@@ -120,6 +119,7 @@ $('#consult-access-key-btn').on('click', async (event) => {
     return null;
   }
 
+  clearXmlErrorMessageAlertList();
   clearTableBody();
   changeLoadingAnimationText('Carregando...');
   showLoadingAnimation();
@@ -171,21 +171,24 @@ const sendContigencyXmlsData = (postArray, apiToken) => {
       body: JSON.stringify(postData)
     })
       .then(async response => {
-        const json = await response.json();
-
-        if (!response.ok) {
+        if (response.ok) {
+          const json = await response.json();
+          return { response: json, errorMessage: null }
+        } else {
           if (response.status != 404) {
+            const json = await response.json();
             const exception = json.hasOwnProperty('excecao') ? json.excecao : '';
-            console.error(`XML [${index}] response NOT OK: [${response.status}]: ${response.statusText} | ${exception}`);
-            return null;
+            const errorMessage = `XML [${index}] response NOT OK: [${response.status}](${response.statusText}) ${exception}`
+
+            console.error(errorMessage);
+            return { response: null, errorMessage };
           }
         }
-
-        return json;
       })
       .catch(error => {
-        console.error(`XML [${index}] error: ${error}`);
-        return null;
+        const errorMessage = `XML [${index}] Exception: ${error}`;
+        console.error(errorMessage);
+        return { response: null, errorMessage };
       })
       .finally(() => {
         setProgressBarPercentage(length);
@@ -244,6 +247,7 @@ $('#send-xml-btn').on('click', async (event) => {
     return null;
   }
 
+  clearXmlErrorMessageAlertList();
   clearTableBody();
   changeLoadingAnimationText('Carregando...');
   showLoadingAnimation();
@@ -259,16 +263,17 @@ $('#send-xml-btn').on('click', async (event) => {
   let hasXmlErrors = false;
   const xmlsResponseData = await sendContigencyXmlsData(postArray, apiToken);
   xmlsResponseData.forEach(data => {
-    if (data) {
-      const accessKey = data.dadosDoDocumento.chaveDeAcesso || '';
-      const status = data.dadosDoDocumento.status.value || '';
-      const issueDate = data.dadosDoDocumento.dataHoraEmissao || '';
-      const authDate = data.dadosDoDocumento.dataDeAutorizacao || '';
+    if (data.response) {
+      const accessKey = data.response.dadosDoDocumento.chaveDeAcesso || '';
+      const status = data.response.dadosDoDocumento.status.value || '';
+      const issueDate = data.response.dadosDoDocumento.dataHoraEmissao || '';
+      const authDate = data.response.dadosDoDocumento.dataDeAutorizacao || '';
 
       createTableRow(accessKey, status, issueDate, authDate);
     }
     else {
       hasXmlErrors = true;
+      appendXmlErrorMessageAlertList(data.errorMessage);
     }
   });
 
@@ -276,7 +281,7 @@ $('#send-xml-btn').on('click', async (event) => {
   clearInputFile();
 
   if (hasXmlErrors) {
-    window.alert('Existem XMLs não enviados. Consulte o log do navegador para maiores detalhes.');
+    showXmlErrorMessageAlertList();
   }
 });
 
