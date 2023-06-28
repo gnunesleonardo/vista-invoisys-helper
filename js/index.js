@@ -59,17 +59,31 @@ const createTableRow = (accessKey, status, issueDate, authDate) => {
   `);
 }
 
-const showRandomFact = async () => {
+const showRandomFact = () => {
   try {
-    const response = await fetch('https://catfact.ninja/fact', {
-      method: 'GET'
+    fetch('https://catfact.ninja/fact').then(response => {
+      if (response.ok) {
+        response.json().then(json => {
+          $('#random-fact').text(json.fact);
+        });
+      }
     });
-    const randomFact = await response.json();
-    $('#random-fact').text(randomFact.fact);
-  } catch (error) {
-    return null;
-  }
+  } catch (error) { }
 };
+
+const incrementVisitsCounter = () => {
+  try {
+    fetch('https://api.api-ninjas.com/v1/counter?id=vistainvoisyshelper&hit=true', {
+      headers: { 'X-Api-Key': 'PcT918R7y671w1GT54dl5g==XFIURMa1OU5LvxgX' }
+    }).then(response => {
+      if (response.ok) {
+        response.json().then(json => {
+          console.log(`number of visits: ${json.value}`);
+        });
+      }
+    });
+  } catch (error) { }
+}
 
 const getAllAccessKeyData = (accessKeyGetArr, apiToken) => {
   const length = accessKeyGetArr.length;
@@ -288,4 +302,5 @@ $('#send-xml-btn').on('click', async (event) => {
 $('document').ready(async () => {
   $('#tokenfield').tokenfield({});
   showRandomFact();
+  incrementVisitsCounter();
 });
